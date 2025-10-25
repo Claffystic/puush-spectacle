@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Your puush API key
+PUUSH_API_KEY="API KEY HERE"
+
+# Check if file is passed as argument or from stdin
+if [ -p /dev/stdin ]; then
+    TEMP_FILE=$(mktemp /tmp/puush_XXXXXX.png)
+    cat > "$TEMP_FILE"
+    FILE="$TEMP_FILE"
+    CLEANUP=true
+else
+    FILE="$1"
+    CLEANUP=false
+fi
+
+if [ ! -f "$FILE" ]; then
+    notify-send "puush Upload Failed" "File not found: $FILE"
+    paplay /usr/share/sounds/freedesktop/stereo/dialog-error.oga 2>/dev/null
+    exit 1
+fi
+
+# Upload to puush
+RESPONSE=$(curl -s -F "k=$PUUSH_API_KEY" -F "z=poop" -F "f=@$FILE" https://puush.me/api/up)
+
+# Extract URL from response
+URL=$(echo "$RESPONSE" | cut -d',' -f2)
+
+if [ ! -z "$URL" ] && [[ "$RESPONSE" == 0,* ]]; then
+    # Copy to clipboard
+    echo -n "$URL" | wl-copy
+    
+    # Show notification with full URL
+    notify-send -u normal -t 5000 "puush Upload Success" "$URL\n\nLink copied to clipboard!"
+    
+    # Play success sound
+    paplay /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null &
+else
+    notify-send "puush Upload Failed" "Response: $RESPONSE"
+    paplay /usr/share/sounds/freedesktop/stereo/dialog-error.oga 2>/dev/null &
+fi
+
+# Cleanup temp file if created
+if [ "$CLEANUP" = true ]; then
+    rm -f "$TEMP_FILE"
+fi
